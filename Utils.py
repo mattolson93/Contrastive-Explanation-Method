@@ -56,6 +56,14 @@ def save_img(img, name = "output.png"):
     pic = Image.fromarray(fig)
     pic.save(name)
 
+def save_img2(img, name = "output.png"):
+
+    np.save(name, img)
+    fig = np.around((img)*255)
+    fig = fig.astype(np.uint8).squeeze()
+    pic = Image.fromarray(np.hstack(fig))
+    pic.save(name)
+
 def generate_data(data, id, target_label):
     inputs = []
     target_vec = []

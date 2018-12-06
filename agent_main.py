@@ -24,35 +24,36 @@ import numpy as np
 import random
 import time
 from keras.layers import Lambda
-from setup_mnist import MNIST, MNISTModel
+from setup_mnist import MNIST, MNISTModel, AutoEncoderModel
 
 import Utils as util
 from aen_CEM import AEADEN
 
 
 import onnx
-from onnx_tf.backend import prepare
+from backend import prepare
+
 from scipy.misc import imread
 
 
 def model_prediction(model, inputs):
-    value, prob = model.predict(inputs)
+    value, prob = model.model.predict(inputs)
     predicted_class = np.argmax(prob)
     prob_str = np.array2string(prob).replace('\n','')
     return prob, predicted_class, prob_str
 
 class AgentWrapper:
-    def __init__(self, onnx_tf):
+    def __init__(self, keras_model):
         self.num_channels = 4
         self.image_size = 80
         self.num_labels = 6
 
-        self.tf_rep = onnx_tf
+        self.model = keras_model
 
 
     def predict(self, inputs):
-        
-        return self.tf_rep.run(inputs)
+        value, prob = self.model(inputs)
+        return prob
 
 def main(args):
     with tf.Session() as sess:
@@ -68,48 +69,46 @@ def main(args):
         arg_beta = args['beta']
         arg_gamma =args['gamma']
         
-        with tf.gfile.FastGFile('SpaceInvaders-v0.fskip7.160.tar.pb', "rb") as f:
-            graph_def = tf.GraphDef()
-            graph_def.ParseFromString(f.read())
-            g_in = tf.import_graph_def(graph_def, name="")
         
-        import pdb; pdb.set_trace()
-        model = AgentWrapper(g_in)
+        
+        model = AgentWrapper(prepare(onnx.load('SpaceInvaders-v0.fskip7.160.tar.onnx')))#util.load_AE("mnist_AE_1")
 
-        AE_model = prepare(onnx.load('AutoEncoder.onnx'))#util.load_AE("mnist_AE_1")
+
+        AE_model = AutoEncoderModel().model #util.load_AE("mnist_AE_1")# prepare(onnx.load('AutoEncoder.onnx'))
+        init_op = tf.initialize_all_variables()
+
+        sess.run(init_op)
         print("finished loading onnx models")
 
-        test_img = imread("example_game200.png").reshape(1,4,80,80) / 255
+
+        test_img = np.expand_dims(np.array(np.hsplit(imread("example_game200.png") / 255 , 4)), axis = 0)
 
         orig_prob, orig_class, orig_prob_str = model_prediction(model, test_img)
         target_label = orig_class
-        print("Image:{}, infer label:{}".format(image_id, target_label))
-        #orig_img, target = util.generate_data(data, image_id, target_label)
+        print("Image:{}, infer action:{}".format(image_id, target_label))
+
         orig_img = test_img
         target = np.zeros(6)
         target[orig_class] = 1
         target = np.expand_dims(target, axis=0)
-        #target = array([[0., 0., 0., 0., 0., 1., 0., 0., 0., 0.]])
-        #orig_img.shape = (1, x, x, 1)
 
         attack = AEADEN(sess, model, mode = arg_mode, AE = AE_model, batch_size=1, kappa=arg_kappa, init_learning_rate=1e-2,
-            binary_search_steps=arg_b, max_iterations=arg_max_iter, initial_const=arg_init_const, beta=arg_beta, gamma=arg_gamma)
-        import pdb; pdb.set_trace()
+            binary_search_steps=arg_b, max_iterations=arg_max_iter, initial_const=arg_init_const, beta=arg_beta, gamma=arg_gamma, shape_type=1)
 
         adv_img = attack.attack(orig_img, target)
 
-        adv_prob, adv_class, adv_prob_str = util.model_prediction(model, adv_img)
-        delta_prob, delta_class, delta_prob_str = util.model_prediction(model, orig_img-adv_img)
+        adv_prob, adv_class, adv_prob_str = model_prediction(model, adv_img)
+        delta_prob, delta_class, delta_prob_str = model_prediction(model, orig_img-adv_img)
 
         INFO = "[INFO]id:{}, kappa:{}, Orig class:{}, Adv class:{}, Delta class: {}, Orig prob:{}, Adv prob:{}, Delta prob:{}".format(image_id, arg_kappa, orig_class, adv_class, delta_class, orig_prob_str, adv_prob_str, delta_prob_str)
         print(INFO)
 
         suffix = "id{}_kappa{}_Orig{}_Adv{}_Delta{}".format(image_id, arg_kappa, orig_class, adv_class, delta_class)
         arg_save_dir = "{}_ID{}_Gamma_{}".format(arg_mode, image_id, arg_gamma)
-        os.system("mkdir -p Results/{}".format(arg_save_dir))
-        util.save_img(orig_img, "Results/{}/Orig_original{}.png".format(arg_save_dir, orig_class))
-        util.save_img(adv_img, "Results/{}/Adv_{}.png".format(arg_save_dir, suffix))
-        util.save_img(np.absolute(orig_img-adv_img)-0.5, "Results/{}/Delta_{}.png".format(arg_save_dir, suffix))
+        os.system("mkdir -p Results_agent/{}".format(arg_save_dir))
+        util.save_img2(orig_img, "Results_agent/{}/Orig_original{}.png".format(arg_save_dir, orig_class))
+        util.save_img2(adv_img, "Results_agent/{}/Adv_{}.png".format(arg_save_dir, suffix))
+        util.save_img2(np.absolute(orig_img-adv_img), "Results_agent/{}/Delta_{}.png".format(arg_save_dir, suffix))
 
         sys.stdout.flush()
 

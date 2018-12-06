@@ -13,7 +13,7 @@ import gzip
 import urllib.request
 
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation, Flatten
+from keras.layers import Dense, Dropout, Activation, Flatten, Reshape
 from keras.layers import Conv2D, MaxPooling2D
 from keras.utils import np_utils
 from keras.models import load_model
@@ -58,6 +58,23 @@ class MNIST:
         self.train_data = train_data[VALIDATION_SIZE:, :, :, :]
         self.train_labels = train_labels[VALIDATION_SIZE:]
 
+class AutoEncoderModel:
+    def __init__(self, restore = None, session=None, use_log=False):
+        self.num_channels = 4
+        self.image_size = 80
+        self.latent_size = 64
+        input_dim = 80*80*4
+
+        autoencoder = Sequential()
+        autoencoder.add( Flatten())
+        autoencoder.add(
+            Dense(self.latent_size, input_shape=(input_dim,), activation='relu',  kernel_initializer='random_uniform', bias_initializer='zeros')
+        )
+        autoencoder.add(
+            Dense(input_dim, activation='sigmoid',  kernel_initializer='random_uniform', bias_initializer='zeros')
+        )
+        autoencoder.add(Reshape((1,4,80,80), input_shape=(input_dim,)))
+        self.model = autoencoder
 
 class MNISTModel:
     def __init__(self, restore = None, session=None, use_log=False):

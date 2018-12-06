@@ -1,7 +1,13 @@
 import onnx
-from onnx_tf.backend import prepare
+from backend import prepare
 
-model = onnx.load('AutoEncoder.onnx')
-AE_model = prepare(model)
+
+
+agent = prepare(onnx.load('SpaceInvaders-v0.fskip7.160.tar.onnx'))
+AE = prepare(onnx.load("AutoEncoder.onnx"))
+
 
 print("success")
+
+
+

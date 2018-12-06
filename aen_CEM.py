@@ -25,11 +25,15 @@ import numpy as np
 
 class AEADEN:
     def __init__(self, sess, model, mode, AE, batch_size, kappa, init_learning_rate,
-                 binary_search_steps, max_iterations, initial_const, beta, gamma):
+                 binary_search_steps, max_iterations, initial_const, beta, gamma, shape_type = 0):
 
 
         image_size, num_channels, nun_classes = model.image_size, model.num_channels, model.num_labels
-        shape = (batch_size, image_size, image_size, num_channels)
+        if shape_type == 0:
+            shape = (batch_size,  image_size, image_size, num_channels )
+        else:
+            shape = (batch_size, num_channels, image_size, image_size )
+
 
         self.sess = sess
         self.INIT_LEARNING_RATE = init_learning_rate
@@ -182,6 +186,9 @@ class AEADEN:
         for binary_search_steps_idx in range(self.BINARY_SEARCH_STEPS):
             # completely reset adam's internal state.
             self.sess.run(self.init)
+            #TODO: REMOVE THIS HACK CAUSE THE AUTOENCODER ISNT TRAINED
+            self.sess.run(tf.global_variables_initializer())
+
             img_batch = imgs[:batch_size]
             label_batch = labs[:batch_size]
 

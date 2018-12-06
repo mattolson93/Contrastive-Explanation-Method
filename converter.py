@@ -30,19 +30,33 @@ class NNPolicy(torch.nn.Module): # an actor-critic neural network
         self.conv2 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
         self.conv3 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
         self.conv4 = nn.Conv2d(32, 32, 3, stride=2, padding=1)
-        self.linear = nn.Linear(32 * 5 * 5, 256)
+        self.linear = nn.Linear(800, 256)
         self.critic_linear, self.actor_linear = nn.Linear(256, 1), nn.Linear(256, num_actions)
 
     def forward(self, inputs):
-        x = F.elu(self.conv1(inputs)) ; x = F.elu(self.conv2(x))
-        x = F.elu(self.conv3(x)) ; x = F.elu(self.conv4(x))
-        x = self.linear(x.view(-1, 32 * 5 * 5))
+        x = F.elu(self.conv1(inputs)) ; 
+        x = F.elu(self.conv2(x))
+        x = F.elu(self.conv3(x)) ; 
+        x = F.elu(self.conv4(x))
+        x = self.linear(x.view(1, 800))
         return self.critic_linear(x), self.actor_linear(x)
 
 class AutoEncoder(nn.Module):
     def __init__(self, latent_size):
         super(AutoEncoder, self).__init__()
-        self.hidden_units = 3 * 3 * 256
+        self.latent_size = latent_size
+        self.hidden_units = 80*80*4
+
+        self.fc_e = nn.Linear(self.hidden_units, self.latent_size)
+        self.fc_g = nn.Linear(self.latent_size, self.hidden_units)
+
+    def forward(self,x):
+        x = x.view(1, self.hidden_units)
+        x = F.relu(self.fc_e(x))
+        x = self.fc_g(x)
+        x = x.view(1,4,80,80)
+        return x
+        '''self.hidden_units = 3 * 3 * 256
         self.latent_size = latent_size
         self.conv1 = (nn.Conv2d(4, 64, 3, stride=2, padding=1))
         self.conv2 = (nn.Conv2d(64, 128, 4, stride=2, padding=1))
@@ -63,17 +77,20 @@ class AutoEncoder(nn.Module):
         x = F.relu(self.conv3(x))
         x = F.relu(self.conv4(x))
         x = F.relu(self.conv5(x))
-        x = x.view((-1, self.hidden_units))
+        x = x.view(1, self.hidden_units)
         x = self.fc_e(x)
+
         x = self.fc_g(x)
         x = F.relu(x)
-        x = x[0].unsqueeze(0).unsqueeze(2).unsqueeze(3)
+        #import pdb; pdb.set_trace()
+        #x = x.view(1, self.latent_size,1,1)
+        x = x.unsqueeze(2).unsqueeze(3)
         x = F.relu(self.deconv1(x))
         x = F.relu(self.deconv2(x))
         x = F.relu(self.deconv3(x))
         x = F.relu(self.deconv4(x))
         x = self.deconv5(x)
-        return x
+        return x'''
 
 
 
